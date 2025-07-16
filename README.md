@@ -35,6 +35,9 @@
 
 ```
 📦FE_practice
+ ┣ 📂.github
+ ┃ ┗ 📂workflows
+ ┃   ┗ 📜cicd.yml
  ┣ 📂public
  ┃ ┗ 📂favicons
  ┣ 📂src
@@ -143,6 +146,85 @@ npm run preview
 | 브라우저에서 설치 아이콘 클릭 | PWA 앱 설치 | 바탕화면에서 pwa 앱 확인|
 | --- | --- | --- |
 | ![pwa1](https://github.com/user-attachments/assets/ece0224d-0429-4ad5-a3c1-c385c6e0b393) | ![pwa2](https://github.com/user-attachments/assets/529d188a-1a65-48b1-93e1-a15d4d60187e) | ![pwa3](https://github.com/user-attachments/assets/9b613570-b852-46e4-a5ed-38cc9101b2e3) |
+
+  </div>
+</details>
+
+<details>
+  <summary><h2>🚀 [실습] CI/CD 구축</h2></summary>
+  <div markdown="1">
+
+**1️⃣ `.env`파일 내용 GitHub Secrets 등록하기**
+```
+VITE_ID = likelion
+VITE_PW = likelion1234
+```
+
+<br>
+
+**2️⃣ 워크플로우 작성하기**
+> `.github/workflows/cicd.yml` 파일을 생성해서 작성해주세요!
+```
+name: CI/CD
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  Deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v3
+
+      - name: Cache node modules
+        uses: actions/cache@v3
+        with:
+          path: node_modules
+          key: ${{ runner.OS }}-build-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.OS }}-build-
+            ${{ runner.OS }}-
+
+      - name: Install Dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: npm install
+
+      - name: Set Environment Variables
+        run: |
+          echo "VITE_ID=${{ secrets.VITE_ID }}" >> .env
+          echo "VITE_PW=${{ secrets.VITE_PW }}" >> .env
+
+      - name: Build
+        run: npm run build --mode production
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Deploy to S3
+        run: aws s3 sync ./build s3://${{ secrets.AWS_BUCKET_NAME }} --delete
+
+      - name: Invalidate CloudFront
+        uses: chetan/invalidate-cloudfront-action@master
+        env:
+          PATHS: '/*'
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          DISTRIBUTION: ${{ secrets.DEV_AWS_DISTRIBUTION_ID }}
+```
+
+<br>
+
+**3️⃣ `main`브랜치에 push하고 GitHub Action 확인하기**
+> S3와 Cloudfront에서도 확인해보기!
 
   </div>
 </details>
